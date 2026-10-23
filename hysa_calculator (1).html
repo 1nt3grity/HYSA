@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HYSA Growth Calculator</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#ffffff; --text:#17202a; --muted:#667085; --line:#e4e7ec; --accent:#176b55; --accent2:#e7f4ef; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; padding:22px; }
+  .wrap { max-width:980px; margin:0 auto; }
+  h1 { font-size:clamp(1.7rem,4vw,2.4rem); margin:0 0 8px; letter-spacing:-.04em; }
+  .sub { color:var(--muted); margin:0 0 24px; line-height:1.5; }
+  .layout { display:grid; grid-template-columns: minmax(260px, .9fr) minmax(0,1.4fr); gap:18px; align-items:start; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 4px 18px rgba(16,24,40,.04); }
+  h2 { font-size:1.1rem; margin:0 0 18px; }
+  label { display:block; font-size:.9rem; font-weight:650; margin:15px 0 7px; }
+  input[type="number"] { width:100%; padding:12px 13px; border:1px solid #cfd5dd; border-radius:10px; font-size:1rem; color:var(--text); background:#fff; }
+  input:focus { outline:3px solid rgba(23,107,85,.15); border-color:var(--accent); }
+  .hint { color:var(--muted); font-size:.8rem; margin-top:6px; line-height:1.4; }
+  .check { display:flex; gap:10px; align-items:center; margin-top:17px; font-size:.92rem; }
+  .check input { width:17px; height:17px; accent-color:var(--accent); }
+  .check label { margin:0; font-weight:600; }
+  .summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:18px; }
+  .metric { background:var(--accent2); border-radius:13px; padding:15px; }
+  .metric span { display:block; font-size:.8rem; color:#3f6258; margin-bottom:7px; }
+  .metric strong { font-size:clamp(1.25rem,3vw,1.8rem); letter-spacing:-.03em; overflow-wrap:anywhere; }
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; min-width:470px; }
+  th,td { text-align:right; padding:13px 10px; border-bottom:1px solid var(--line); font-size:.9rem; white-space:nowrap; }
+  th { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; }
+  th:first-child,td:first-child { text-align:left; }
+  tbody tr:last-child td { border-bottom:0; }
+  .bar-bg { height:8px; background:#edf0f2; border-radius:99px; overflow:hidden; margin-top:6px; }
+  .bar { height:100%; background:var(--accent); border-radius:99px; }
+  .note { font-size:.82rem; color:var(--muted); line-height:1.5; margin:18px 0 0; }
+  .full { margin-top:18px; }
+  .monthly { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+  .schedule-row { display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:end; margin-top:10px; }
+  .schedule-row label { margin-top:0; font-size:.8rem; }
+  .schedule-row input { padding:10px; min-width:0; }
+  button { border:0; border-radius:9px; padding:10px 12px; cursor:pointer; font-weight:650; }
+  .secondary-btn { margin-top:12px; background:var(--accent2); color:var(--accent); }
+  .remove-btn { background:#fef0f0; color:#a12828; padding:10px; }
+  [hidden] { display:none !important; }
+  .smallmetric { border:1px solid var(--line); border-radius:12px; padding:13px; }
+  .smallmetric span { color:var(--muted); font-size:.82rem; display:block; margin-bottom:5px; }
+  .smallmetric strong { font-size:1.15rem; }
+  @media (max-width:720px) { body { padding:13px; } .layout { grid-template-columns:1fr; } .card { padding:18px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>HYSA Growth Calculator</h1>
+  <p class="sub">Estimate how your high-yield savings account could grow with compound interest, with or without monthly deposits.</p>
+  <div class="layout">
+    <section class="card">
+      <h2>Your savings details</h2>
+      <label for="balance">Starting balance ($)</label>
+      <input id="balance" type="number" min="0" step="0.01" value="1366.56">
+      <label for="apy">Interest rate / APY (%)</label>
+      <input id="apy" type="number" min="0" max="100" step="0.01" value="4.00">
+      <div class="hint">Example rate: 4.00% APY. Enter the APY shown by your bank.</div>
+      <div class="check">
+        <input id="contributeToggle" type="checkbox" checked>
+        <label for="contributeToggle">Include monthly contributions</label>
+      </div>
+      <label for="contribution">Monthly contribution ($)</label>
+      <input id="contribution" type="number" min="0" step="0.01" value="50">
+      <div class="hint">Set this to $0 or uncheck the box if you won't add money monthly.</div>
+
+      <div class="check">
+        <input id="scheduleToggle" type="checkbox">
+        <label for="scheduleToggle">Use different contributions in different months</label>
+      </div>
+      <div id="schedulePanel" hidden>
+        <div class="hint">These scheduled amounts REPLACE the fixed monthly contribution; they are not added together. Add date ranges with different monthly deposit amounts. Ranges repeat each year. Set any amount to $0 for months when you will not contribute.</div>
+        <div id="scheduleRows"></div>
+        <button type="button" id="addSchedule" class="secondary-btn">+ Add contribution period</button>
+      </div>
+      <label for="years">Plan length</label>
+      <div class="hint">All four plans (2, 5, 7, and 10 years) are shown on the right.</div>
+      <div class="monthly">
+        <div class="smallmetric"><span>Estimated monthly interest at the start</span><strong id="startInterest">$4.48</strong></div>
+        <div class="smallmetric"><span>Monthly contribution used</span><strong id="monthlyUsed">$50.00</strong></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Your projected savings</h2>
+      <div class="summary">
+        <div class="metric"><span>Value after 10 years</span><strong id="tenYear">$0.00</strong></div>
+        <div class="metric"><span>Total interest after 10 years</span><strong id="tenInterest">$0.00</strong></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Plan</th><th>Final balance</th><th>You deposit</th><th>Interest earned</th></tr></thead>
+          <tbody id="results"></tbody>
+        </table>
+      </div>
+      <p class="note">Estimates assume a constant APY, monthly compounding, and deposits at the end of each month. Actual bank interest may vary with daily balances, rate changes, fees, and deposit timing. This is an estimate, not a guarantee.</p>
+    </section>
+  </div>
+  <section class="card full">
+    <h2>Monthly growth snapshot</h2>
+    <div class="summary">
+      <div class="metric"><span>Estimated interest in month 1</span><strong id="monthOne">$0.00</strong></div>
+      <div class="metric"><span>Estimated balance after 1 year</span><strong id="yearOne">$0.00</strong></div>
+    </div>
+    <div id="yearOneBar"></div>
+  </section>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
+let scheduleId = 0;
+
+function addScheduleRow(startMonth = 1, endMonth = 12, amount = 50) {
+  const id = ++scheduleId;
+  const row = document.createElement('div');
+  row.className = 'schedule-row';
+  row.dataset.id = id;
+  row.innerHTML = `
+    <div><label>From month (1–12)</label><input class="from-month" type="number" min="1" max="12" step="1" value="${startMonth}"></div>
+    <div><label>To month (1–12)</label><input class="to-month" type="number" min="1" max="12" step="1" value="${endMonth}"></div>
+    <div><label>Monthly $</label><input class="amount" type="number" min="0" step="0.01" value="${amount}"></div>
+    <button type="button" class="remove-btn" aria-label="Remove period" title="Remove period">×</button>`;
+  row.querySelectorAll('input').forEach(input => input.addEventListener('input', update));
+  row.querySelector('button').addEventListener('click', () => { row.remove(); update(); });
+  $('scheduleRows').appendChild(row);
+  update();
+}
+
+function scheduleAmountForMonth(monthIndex, defaultAmount) {
+  // monthIndex is 0-based across the full plan; schedule periods repeat every 12 months.
+  const monthInYear = (monthIndex % 12) + 1;
+  const rows = [...$('scheduleRows').querySelectorAll('.schedule-row')];
+  let selected = defaultAmount;
+  for (const row of rows) {
+    const from = Math.max(1, Math.min(12, parseInt(row.querySelector('.from-month').value, 10) || 1));
+    const to = Math.max(1, Math.min(12, parseInt(row.querySelector('.to-month').value, 10) || 12));
+    const amount = Math.max(0, Number(row.querySelector('.amount').value) || 0);
+    const matches = from <= to
+      ? monthInYear >= from && monthInYear <= to
+      : monthInYear >= from || monthInYear <= to;
+    if (matches) selected = amount;
+  }
+  return selected;
+}
+
+function project(start, apy, monthly, months, useSchedule) {
+  const r = Math.pow(1 + apy / 100, 1 / 12) - 1;
+  let balance = start;
+  let totalContributions = 0;
+  for (let i = 0; i < months; i++) {
+    balance *= (1 + r);
+    const deposit = useSchedule ? scheduleAmountForMonth(i, monthly) : monthly;
+    balance += deposit;
+    totalContributions += deposit;
+  }
+  const deposits = start + totalContributions;
+  return { balance, deposits, interest: balance - deposits, r, contributions: totalContributions };
+}
+function update() {
+  const start = Math.max(0, Number($('balance').value) || 0);
+  const apy = Math.min(100, Math.max(0, Number($('apy').value) || 0));
+  const active = $('contributeToggle').checked;
+  const useSchedule = active && $('scheduleToggle').checked;
+  $('contribution').disabled = !active || useSchedule;
+  $('contribution').style.opacity = (!active || useSchedule) ? '.5' : '1';
+  $('scheduleToggle').disabled = !active;
+  $('schedulePanel').hidden = !useSchedule;
+  const monthly = active && !useSchedule ? Math.max(0, Number($('contribution').value) || 0) : 0;
+  const r = Math.pow(1 + apy / 100, 1 / 12) - 1;
+  const firstDeposit = useSchedule ? scheduleAmountForMonth(0, monthly) : monthly;
+  $('startInterest').textContent = money(start * r);
+  $('monthlyUsed').textContent = useSchedule ? 'Varies' : money(monthly);
+  $('monthOne').textContent = money(start * r);
+  const one = project(start, apy, monthly, 12, useSchedule);
+  $('yearOne').textContent = money(one.balance);
+  const ten = project(start, apy, monthly, 120, useSchedule);
+  $('tenYear').textContent = money(ten.balance);
+  $('tenInterest').textContent = money(ten.interest);
+  const plans = [2,5,7,10].map(y => ({years:y, ...project(start, apy, monthly, y*12, useSchedule)}));
+  const max = Math.max(...plans.map(p => p.balance), 1);
+  $('results').innerHTML = plans.map(p => `
+    <tr>
+      <td><strong>${p.years} years</strong><div class="bar-bg"><div class="bar" style="width:${(p.balance/max*100).toFixed(2)}%"></div></div></td>
+      <td><strong>${money(p.balance)}</strong></td>
+      <td>${money(p.deposits)}</td>
+      <td>${money(p.interest)}</td>
+    </tr>`).join('');
+  $('yearOneBar').innerHTML = `<div class="hint">After 1 year: ${money(one.balance)} total — ${money(one.deposits)} from your starting balance and deposits, plus ${money(one.interest)} in estimated interest.</div><div class="bar-bg" style="height:12px;margin-top:10px"><div class="bar" style="width:${Math.min(100,one.balance/Math.max(one.balance,ten.balance)*100).toFixed(2)}%;height:12px"></div></div>`;
+}
+['balance','apy','contribution'].forEach(id => $(id).addEventListener('input', update));
+$('contributeToggle').addEventListener('change', update);
+$('scheduleToggle').addEventListener('change', () => { if ($('scheduleToggle').checked && !$('scheduleRows').children.length) addScheduleRow(1, 12, 0); update(); });
+$('addSchedule').addEventListener('click', () => addScheduleRow(1, 12, 50));
+update();
+</script>
+</body>
+</html>
